@@ -30,11 +30,36 @@
 //#                   Power Consump Active State  : 0.400W
 //#                   Power Consump Deep Sleep    : 0.000001W (~7uA)
 //#
+//#
+//#
+//#       Time struct information:
+//#
+//#             %A	Full weekday name
+//#             %B	Full month name
+//#             %d	Day of the month
+//#             %Y	Year
+//#             %H	Hour in 24h format
+//#             %I	Hour in 12h format
+//#             %M	Minute
+//#             %S	Second
+//#           
+//#             timeinfo.tm_sec	    int	seconds after the minute	0-61*
+//#             timeinfo.tm_min	    int	minutes after the hour	0-59
+//#             timeinfo.tm_hour	  int	hours since midnight	0-23
+//#             timeinfo.tm_mday	  int	day of the month	1-31
+//#             timeinfo.tm_mon	    int	months since January	0-11
+//#             timeinfo.tm_year	  int	years since 1900	
+//#             timeinfo.tm_wday	  int	days since Sunday	0-6
+//#             timeinfo.tm_yday	  int	days since January 1	0-365
+//#             timeinfo.tm_isdst	  int	Daylight Saving Time flag	
+//#           
+//#
 //#   Version History:
 //#   
 //#       Date        Description
 //#     -----------   -----------------------------------------------------------------------
-//#      2023-05-08    Original Creation
+//#      2024-09-05    Original Creation
+//#      2024-09-07    Added time stamp to Blynk App using NTP
 //#
 //###########################################################################################
 
@@ -48,10 +73,15 @@ char SSID[] = "";
 char PASSCODE[] = "";
 
 
-
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <BlynkSimpleEsp32.h>
+#include "time.h"
+
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = -7*3600; // -7 hours
+const int   daylightOffset_sec = 0;
+
 
 
 //---------------------------------------------------------
@@ -102,6 +132,20 @@ void setupWifi() {
 //---------------------------------------------------------
 void checkBlynkStatus() {
 
+  // Get local time
+  char locTime[20];
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    Blynk.virtualWrite(V2, "N/A");
+  } else {
+    sprintf(locTime, "%02d/%02d/%02d %02d:%02d:%02d",\
+        timeinfo.tm_mon+1, timeinfo.tm_mday, timeinfo.tm_year+1900,\
+        timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    Serial.println(locTime);
+    Blynk.virtualWrite(V2, locTime);
+  }
+
   // update random number 
   int a = random(4095);
   Blynk.virtualWrite(V1, a);
@@ -150,6 +194,9 @@ void setup() {
   randomSeed(analogRead(3));
     
   setupWifi();
+ 
+  // Init and get the time
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
  
   // Configure Blynk
   Serial.println("Configure Blynk with AUTH...");
